@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "mlops_weather"
+version = "0.1.0"
+description = "Weather forecasting ML pipeline with Dagster"
+authors = ["Tahir Mahdi <mahdidodz2004@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+tensorflow = "^2.8"
+dagster = "^1.0"
+dagster-cloud = "^0.14"
+numpy = "^1.21"
+scikit-learn = "^0.24"
+requests = "^2.26"
+
+[build-system]
+requires = ["poetry"]
+build-backend = "poetry.masonry.api"
