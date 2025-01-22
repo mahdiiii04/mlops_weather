@@ -5,5 +5,5 @@ instance:
       class: CloudRunLauncher
       config:
         api_url: "https://mahdi.dagster.cloud" 
-        token: "user:368cf6ad884847f19e1b99d7fb5857b2" 
+        token: "368cf6ad884847f19e1b99d7fb5857b2" 
         project_name: "mlops_weather"
