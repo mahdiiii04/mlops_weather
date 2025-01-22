@@ -1,0 +1,9 @@
+instance:
+  local:
+    run_launcher:
+      module: dagster_cloud.run_launcher
+      class: CloudRunLauncher
+      config:
+        api_url: "https://mahdi.dagster.cloud" 
+        token: "user:368cf6ad884847f19e1b99d7fb5857b2" 
+        project_name: "your-project-name"
