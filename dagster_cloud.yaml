@@ -8,3 +8,6 @@ instance:
         token: "368cf6ad884847f19e1b99d7fb5857b2" 
         project_name: "mlops_weather"
         workspace_file: "workspace.yml" 
+locations:
+  - location_name: "default_location"
+    other_key: "value"
