@@ -1,12 +1,14 @@
 import requests
 from datetime import datetime, timedelta
-from dagster import op, job, schedule
+from dagster import op, job, schedule, Out
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error
+import mlflow
+import mlflow.keras
 
 @op
 def fetch_data_from_api():
@@ -36,11 +38,12 @@ def fetch_data_from_api():
         max_temps = data['daily']['temperature_2m_max']  
         return max_temps
     else:
-        print(f"Error fetching data: {response.status_code}")
-        return None
+        raise Exception(f"Error fetching data: {response.status_code}")
 
 
-@op
+@op(
+    out={"model": Out(), "scaler": Out(), "X_max": Out(), "y_max": Out()}
+)
 def train_model(data):
     max_temps = np.array(data).reshape(-1, 1)
 
@@ -57,21 +60,46 @@ def train_model(data):
     X_max = create_sequences(max_temps_scaled, seq_length)
     y_max = max_temps_scaled[seq_length:]
 
-    # Build the LSTM model
-    model = Sequential()
-    model.add(LSTM(50, return_sequences=True, input_shape=(seq_length, 1)))
-    model.add(LSTM(50))
-    model.add(Dense(1))
+    # Start MLflow logging for the model training
+    with mlflow.start_run():
+        # Log hyperparameters (if any)
+        mlflow.log_param("seq_length", seq_length)
+        mlflow.log_param("epochs", 20)
+        mlflow.log_param("batch_size", 1)
 
-    model.compile(optimizer='adam', loss='mean_squared_error')
+        # Build the LSTM model
+        model = Sequential()
+        model.add(LSTM(50, return_sequences=True, input_shape=(seq_length, 1)))
+        model.add(LSTM(50))
+        model.add(Dense(1))
 
-    # Train the model for max temperatures
-    model.fit(X_max, y_max, epochs=20, batch_size=1, verbose=1)
+        model.compile(optimizer='adam', loss='mean_squared_error')
 
-    return model, scaler, X_max, y_max
+        # Train the model
+        model.fit(X_max, y_max, epochs=20, batch_size=1, verbose=1)
+
+        # Log the model
+        mlflow.keras.log_model(model, "lstm_model")
+
+        y_pred = model.predict(X_max)
+
+        y_pred_rescaled = scaler.inverse_transform(y_pred)
+        y_actual_rescaled = scaler.inverse_transform(y_max)
+
+        # Calculate Mean Squared Error (MSE) and Mean Absolute Error (MAE)
+        mse = mean_squared_error(y_actual_rescaled, y_pred_rescaled)
+        mae = mean_absolute_error(y_actual_rescaled, y_pred_rescaled)
+
+        # Log the metrics
+        mlflow.log_metric("mse", mse)
+        mlflow.log_metric("mae", mae)
+
+        return model, scaler, X_max, y_max
 
 
-@op
+@op(
+    out={"mse": Out(), "mae": Out()}
+)
 def evaluate_model(model, scaler, X_max, y_max):
     # Predict using the model
     y_pred = model.predict(X_max)
@@ -91,14 +119,12 @@ def evaluate_model(model, scaler, X_max, y_max):
 
 @job
 def weather_forecasting_pipeline():
-    data = fetch_data_from_api()
-    model, scaler, X_max, y_max = train_model(data)
-    mse, mae = evaluate_model(model, scaler, X_max, y_max)
+    max_temps = fetch_data_from_api()
 
+    model, scaler, X_max, y_max = train_model(max_temps)
+
+    mse, mae = evaluate_model(model, scaler, X_max, y_max)
 
 @schedule(cron_schedule="0 0 * * *", job=weather_forecasting_pipeline)  # Run daily at midnight
 def daily_weather_forecasting_schedule():
     return {}
-    
-if __name__ == "__main__":
-    daily_weather_forecasting_schedule()

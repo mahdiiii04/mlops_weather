@@ -1,4 +1,2 @@
-version: 1
-locations:
-  - name: "weather_pipeline"
-    python_file: "weather.py"
+load_from:
+  - python_file: weather.py
