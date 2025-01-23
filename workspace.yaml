@@ -1,2 +1,5 @@
 load_from:
   - python_file: weather.py
+locations:
+  - location_name: weather_service
+    python_file: weather.py
